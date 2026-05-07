@@ -37,8 +37,10 @@ PINNs are neural networks that are trained not just on data, but also on the **u
 ```
 .
 ├── black_scholes.py                         # Main wrapper class for training/evaluation
+├── compare_methods.py                       # Side-by-side PINN vs FDM comparison script
 ├── config.json                              # All key hyperparameters
 ├── data.py                                  # Synthetic data and collocation point generation
+├── fdm.py                                   # Crank-Nicolson finite-difference baseline
 ├── loss.py                                  # PDE residual and total loss function
 ├── model.py                                 # Neural network architecture (PINN)
 ├── train.py                                 # Training loop
@@ -85,6 +87,55 @@ All training and model parameters can be changed in `config.json`, including:
 ## Output Example
 
 After training, the model compares its predicted call prices with the true Black-Scholes analytical solution at time `t = 0`. A typical output plot shows the learned function overlayed with ground truth.
+
+## Finite-Difference Baseline
+
+To compare the PINN against a traditional solver in a defensible way, this repo now includes a simple Crank-Nicolson finite-difference baseline in `fdm.py`.
+
+Use it as the reference implementation for the same 1D European call problem:
+
+- same PDE
+- same parameters `K`, `T`, `r`, `sigma`
+- same domain in `S`
+- same call-option terminal and boundary conditions
+
+The fair comparison is not "PINN output vs FDM output at different setups". It is:
+
+1. Solve the same PDE with both methods.
+2. Evaluate both on the same `S` grid at `t = 0`.
+3. Report the same metrics, such as max error, $L^2$ error, runtime, and sensitivity to resolution or sampling.
+
+For this problem, the PINN is mainly interesting as a mesh-free optimization approach, while FDM is the classical accuracy and robustness baseline.
+
+## Study Design Notes
+
+If your goal is a defensible comparison, the study should be organized around the same mathematical problem and not around matching the methods one-to-one.
+
+For the current 1D Black-Scholes case:
+
+- Use the same call option, same parameters, same domain, and the same evaluation grid.
+- Compare both methods at `t = 0` against the analytic solution.
+- Report accuracy (`MAE`, relative `L2` error, max error), wall-clock time, and sensitivity to discretization or collocation budget.
+- Treat PINN training time separately from inference time, because that training cost is part of the method.
+
+For an augmented-dimension study, a clean design is:
+
+1. Define a family of multi-asset Black-Scholes problems with dimension `d = 1, 2, 5`.
+2. Keep the payoff family fixed as much as possible, for example a basket call or an arithmetic-average call.
+3. Normalize the domain and rescale inputs so the network is not punished by trivial scaling issues.
+4. Compare methods under equal information budgets rather than equal code structure.
+5. For `d = 1`, use FDM as the reference baseline; for higher `d`, full-grid FDM becomes impractical and you will likely need sparse-grid, Monte Carlo, or semi-analytic references.
+6. Report scaling curves: error versus dimension, error versus sample budget, and runtime versus dimension.
+
+The key scientific claim you can support is not that a PINN is universally better than FDM, but that it may degrade more gracefully than grid-based methods as `d` grows.
+
+Run the comparison script with:
+
+```bash
+python compare_methods.py
+```
+
+It will train or load the PINN, run the Crank-Nicolson baseline, compare both against the analytic solution, and save a plot.
 
 ---
 

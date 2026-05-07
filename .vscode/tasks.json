@@ -1,0 +1,20 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run PINN training",
+			"type": "shell",
+			"command": "c:\\Users\\ARTHUR AMALIR\\OneDrive\\Documents\\GitHub\\BlackScholesPINN\\.venv\\Scripts\\python.exe",
+			"args": [
+				"main.py",
+				"--config",
+				"config.json"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
+		}
+	]
+}
