@@ -1,67 +1,132 @@
-This README is designed to keep your project structured according to the "Numerical Analysis" requirements of your course while highlighting the "Novelty" of your BSDE research.
+# Project Plan: Curse of Dimensionality in Black-Scholes PDEs
 
-# Project: High-Dimensional BSDEs vs. Traditional Numerical Analysis
-**Objective:** Evaluating the "Curse of Dimensionality" in Semi-linear Black-Scholes PDEs: A Comparative Study of FDM, PINNs, and Stochastic Heun-BSDE Solvers.
+## 1) Core Objective
+Evaluate how solution quality and computational cost scale with dimension for Black-Scholes PDEs, comparing Physics-Informed Neural Networks (PINNs) against traditional numerical baselines.
 
----
+Primary dimensions: d in {1, 2, 5}.
 
-## 📂 Project Structure
-* `01_1D_Baseline/`: FDM vs. PINN comparison (The "Validation" phase).
-* `02_MultiD_Solver/`: PINN scaled to $d=5, 10, 20, 100$.
-* `03_BSDE_Extension/`: Implementation of Euler-Maruyama vs. Heun integration.
-* `04_Path_Integral/`: (Optional) Wiener Path Integral Monte Carlo baseline.
-* `results/`: Plots for Accuracy, Speed, and Memory usage.
+Primary question:
+Can PINNs maintain competitive accuracy as d increases while full-grid PDE methods become memory-limited?
 
----
+## 2) Scope and Positioning
+This project is about PDE solvers and scaling, not about proving a universal PINN advantage.
 
-## 📈 Phase 1: The 1D Comparison (Baseline)
-**Goal:** Prove the PINN works by comparing it to the "Gold Standard" Finite Difference Method.
-* **Method:** Solve the 1D Black-Scholes Eq.
-* **Metric - Accuracy:** Plot the $L^2$ error of FDM vs. PINN against the analytical solution.
-* **Metric - Speed:** Document the time to reach $10^{-3}$ error.
-* **Numerical Link:** Discuss the **CFL Condition** and grid spacing ($\Delta x$) for FDM.
+What will be claimed:
+- Full-grid finite differences suffer exponential state-space growth (memory wall).
+- PINNs show more favorable empirical scaling in tested dimensions.
 
----
+What will not be claimed:
+- PINNs "solve" the curse of dimensionality in general.
+- PINNs dominate all classical methods in all regimes.
 
-## 🚀 Phase 2: Scaling to 5D+ (The "Curse" Analysis)
-**Goal:** Demonstrate the "Memory Wall" where traditional methods fail.
-* **FDM Analysis:** Calculate the theoretical memory requirement for a 5D, 10D, and 20D grid. 
-    * *Example:* 20D grid with 10 points/dim = $10^{20}$ nodes. Show that FDM is physically impossible here.
-* **PINN Implementation:** Use Latin Hypercube Sampling (LHS) to train in 5D.
-* **Speed Gain:** Plot **Dimension ($d$) vs. Training Time**. The PINN should show linear or low-polynomial scaling, proving it "breaks" the curse.
+## 3) Problem Family
+Use risk-neutral multi-asset Black-Scholes PDE:
 
+dV/dt + 0.5 * sum_{i=1..d} sum_{j=1..d} rho_ij sigma_i sigma_j S_i S_j d2V/(dS_i dS_j)
++ r * sum_{i=1..d} S_i dV/dS_i - rV = 0
 
+Test payoffs:
+- d=1: Vanilla European call (closed-form reference exists).
+- d=2: Basket options.
+  - Geometric basket call (closed-form reference exists).
+  - Arithmetic basket call (no closed form; stochastic reference).
+- d=5: Arithmetic basket call (stochastic reference only).
 
----
+## 4) Experiment Matrix
+- Row A (d=1): Vanilla call.
+  - References: analytical solution + Crank-Nicolson FDM.
+  - Goal: validate baseline correctness.
+- Row B (d=2): Basket call.
+  - References: geometric closed-form + arithmetic stochastic reference.
+  - Goal: validate cross-derivative handling and correlation coupling.
+- Row C (d=5): Arithmetic basket.
+  - References: stochastic high-accuracy benchmark.
+  - Goal: quantify scaling and memory wall impact.
 
-## 🧠 Phase 3: The BSDE "Heun" Novelty
-**Goal:** Address the 2024-2025 research gap regarding discretization bias.
-* **Problem:** Standard Euler-Maruyama (EM) BSDEs have a "bias floor" (they stop getting more accurate after a certain point).
-* **Solution:** Implement the **Stochastic Heun** scheme (2nd order).
-* **Analysis:** Compare the **Bias vs. Time-step size ($\Delta t$)**. Show that Heun allows for larger time steps (faster training) with higher final accuracy than EM.
+## 5) Baselines and Fairness Protocol
+### FDM policy
+- Use FDM where feasible:
+  - d=1 full baseline.
+  - d=2 coarse/moderate baseline.
+- For d>=5 full-grid FDM is reported as infeasible due to memory/time, not "skipped without analysis".
 
----
+Memory accounting for tensor grids:
+- Nodes = n^d
+- Lower bound memory per field (float64) = 8 * n^d bytes
+- Practical lower bound with 3 arrays = 24 * n^d bytes
 
-## 🔗 Extension: Path Integral (PI) Method
-**Goal:** Provide a third comparison point using the Feynman-Kac formula.
-* **Structure:** Use Monte Carlo sampling of Wiener Paths.
-* **Comparison:** * PI is "embarrassingly parallel" but has high variance.
-    * PINNs "smooth" this variance through the Neural Network's inductive bias.
-* **The Final Argument:** Why the NN-BSDE approach is the most robust for high-dimensional engineering uncertainty.
+### PINN policy
+- Architecture fixed for comparison runs (e.g., depth 4, width 128, Tanh).
+- Sweep only data/collocation budgets and training epochs.
+- Track training and inference cost separately.
 
+### Stochastic reference policy
+- For no-closed-form cases use a high-quality stochastic benchmark.
+- Report estimator uncertainty (confidence intervals or standard error).
 
+## 6) Metrics to Report
+Accuracy:
+- MAE
+- Relative L2 error
+- Max error
 
----
+Compute:
+- Training wall-clock time
+- Inference wall-clock time
+- Peak memory usage
 
-## 📊 Key Results to Include in Report
-1.  **Table 1:** Memory usage (MB) for FDM vs. PINN as $d$ increases from 1 to 5.
-2.  **Figure 1:** $L^2$ Relative Error vs. Dimension (FDM should stop at $d=4$, PINN should continue).
-3.  **Figure 2:** Convergence plot of EM-BSDE vs. Heun-BSDE (The "Novelty" proof).
-4.  **Discussion:** The trade-off between the "stochastic noise" of path integrals and the "optimization difficulty" of PINNs.
+Robustness:
+- 3 to 5 seeds per setting
+- Report median and IQR
 
----
+Scaling views:
+- Error vs dimension
+- Time vs dimension
+- Memory vs dimension
+- Error vs compute budget
 
-### 🛠 Quick Commands
-* `python train.py --dim 1 --mode fdm` (Run 1D baseline)
-* `python train.py --dim 20 --mode pinn` (Run high-D study)
-* `python train.py --dim 20 --mode bsde --scheme heun` (Run the novelty test)
+## 7) Execution Order
+1. Validate Row A end-to-end (d=1).
+2. Implement and test multi-asset PDE residual (d=2).
+3. Add basket data generation and stochastic reference.
+4. Run Row B and verify consistency against geometric closed form.
+5. Run Row C with fixed compute budgets and seed sweeps.
+6. Produce final scaling plots and memory-wall table.
+
+## 8) Concrete Outputs for Report
+- Table 1: Memory growth for FDM tensor grids (d=1,2,5,10,20).
+- Figure 1: Relative L2 error vs dimension.
+- Figure 2: Training time vs dimension.
+- Figure 3: Peak memory vs dimension.
+- Figure 4: Error vs compute budget (PINN vs feasible baselines).
+- Discussion: tradeoff between deterministic discretization error and optimization/statistical error.
+
+## 9) Optional Extensions (Not Core)
+- BSDE discretization comparison (Euler-Maruyama vs stochastic Heun).
+- Path-integral or multi-level Picard comparisons.
+
+These are useful add-ons, but must remain separate from the core PDE scaling claim.
+
+## 10) Repository Mapping (Planned)
+- fdm.py: d=1 baseline, d=2 coarse extension if feasible.
+- loss.py: pde_residual_multid and total PINN losses.
+- data_multi.py: correlated GBM sampling and payoff generation.
+- mc_reference.py: stochastic reference with uncertainty estimates.
+- compare_methods.py / runner scripts: reproducible experiment execution.
+- results/: generated tables and plots.
+
+## 11) Minimal Run Targets
+- Pilot budget:
+  - N_colloc: 5k
+  - N_data: 1k
+  - Epochs: 2k
+- Medium budget:
+  - N_colloc: 20k to 50k
+  - N_data: 3k to 10k
+  - Epochs: 5k
+- Large budget:
+  - N_colloc: 100k+
+  - N_data: 30k+
+  - Epochs: 10k+
+
+Use pilot runs first for correctness, then medium/large for final scaling claims.
